@@ -16,7 +16,7 @@ theme_set(theme_light())
 ##Load the data -----
 
 trichinella_spiralis <- read.csv("../data/GCA_001447595.1.csv")
-trichinella_zimbabwensis <- read_csv("../data/GCA_001447665.1.csv")
+trichinella_zimbabwensis <- read.csv("../data/GCA_001447665.1.csv")
 
 ##WRANGLE -----
 ###make a vector containing strings of non TE names 
@@ -25,37 +25,47 @@ ls_non_te = c("simple_repeat", "Simple_repeat",
               "rRNA", "snRNA", "ARTEFACT",
               "Unknown")
 
-####filter repeat dataset for only TE's 
+####filter repeat dataset for only TE's
+# REVIEW 1:
+# Check whether the %notin% operator has been defined
+# It is not a standard base R operator and may cause error.
+# If it has not created or loaded from another package.
 trichinella_zimbabwensis_te_cleaned <- trichinella_zimbabwensis|> 
-  filter(matching_class %notin% ls_non_te)
+  dplyr::filter(!(matching_class %notin% ls_non_te))
 
 trichinella_spiralis_te_cleaned <- trichinella_spiralis |> 
-  filter(matching_class %notin% ls_non_te)
+  dplyr::filter(!(matching_class %notin% ls_non_te))
 
+# REVIEW 2:
+# Check whether all TE classes are captured by these conditions.
+# Any matching_class that does not match either pattern will
+# be assigned NA because no default condition is provided.
 #####Find TE lengths
 trichinella_spiralis_te <- trichinella_spiralis_te_cleaned |> 
   mutate(
     te_length = qry_width,
-    te_category = case_when(
+    te_category = dplyr::case_when(
       str_detect(matching_class, "^DNA|^RC") ~ "DNA_transposon",
       str_detect(matching_class, "^(LINE|LTR|PLE|SINE)") ~ "Retrotransposon"))
 
 trichinella_zimbabwensis_te <- trichinella_zimbabwensis_te_cleaned |> 
   mutate(
     te_length = qry_width,
-    te_category = case_when(
+    te_category = dplyr::case_when(
       str_detect(matching_class, "^DNA|^RC") ~ "DNA_transposon",
       str_detect(matching_class, "^(LINE|LTR|PLE|SINE)") ~ "Retrotransposon"))
 
 ######Calculate TE category proportions for each species
 spiralis_proportions <- trichinella_spiralis_te |>
-  count(te_category) |>
-  mutate(proportion = n / sum(n),
+  dplyr::count(te_category) |>
+  dplyr::mutate(
+    proportion = n / sum(n),
          species = "T. spiralis")
 
 zimb_proportions <- trichinella_zimbabwensis_te |>
-  count(te_category) |>
-  mutate(proportion = n / sum(n),
+  dplyr::count(te_category) |>
+  dplyr::mutate(
+    proportion = n / sum(n),
          species = "T. zimbabwensis") 
 
 #######combine both datasets for TE length comparison 
@@ -68,7 +78,11 @@ te_fragment_df <- bind_rows(
     species = factor(species, levels = c("T. spiralis", "T. zimbabwensis")),
     te_category = factor(te_category,
                          levels = c("DNA_transposon", "Retrotransposon")))
-
+#REVIEW 3
+# The chi-square counts are manually entered
+# Consider calculating the counts directly from the cleaned
+# datasets to ensure that the statistical test uses the
+# actual TE category frequencies.
 #STATISTICAL ANALYSIS-----
 ###chi square test for independence of TE category and species 
 counts <- matrix(
@@ -82,6 +96,10 @@ counts <- matrix(
 
 chisq.test(counts)
 
+# REVIEW 4
+# Proportion and sample sizes are manually entered.
+# Consider calculating these values directly from the 
+# datasets to avoid inconsistenciesand improve reproducibility.
 ####calculate standard-error of proportions
 p_spiralis_DNA <- 0.1157184
 n_spiralis_DNA <- 120
@@ -103,6 +121,11 @@ n_zimb_RT <- 1072
 
 sqrt(p_zimb_RT * (1 - p_zimb_RT) / n_zimb_RT)
 
+#REVIEW 5
+# Standard errors are manually assigned to the datasets.
+# This assumes that the TE categories are in expected order.
+# Consider calculating standard errors directly from the 
+#Corresponding proportions and sample sizes.
 #####add st error to proportions dataset
 spiralis_proportions_er <- spiralis_proportions |> 
   mutate(st_error = c(0.02920155, 0.0105636))
